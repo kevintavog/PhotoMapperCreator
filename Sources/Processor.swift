@@ -35,6 +35,8 @@ struct PhotoMapperItem {
     var thumbnail: String
     var thumbWidth: Int
     var thumbHeight: Int
+
+    var videoDurationSeconds: Double?
 }
 
 class Processor {
@@ -50,14 +52,10 @@ class Processor {
 
 
     static let instance = Processor()
-    private init() {
-        exifDateFormatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
-    }
 
     static let supportedImageMimeTypes: [String] = ["image/jpeg"]
     static let supportedVideoMimeTypes: [String] = ["video/mp4"]
     static let supportedMimeTypes: [String] = supportedImageMimeTypes + supportedVideoMimeTypes
-    let exifDateFormatter = DateFormatter()
 
     private var folderList: [Folder] = []
 
@@ -92,10 +90,23 @@ class Processor {
                 _ = try FileSystem.ensureFolderExists(folder: popupsFolderName)
                 _ = try FileSystem.ensureFolderExists(folder: originalsFolderName)
 
-                let exifItems = try ExifToolInvoker.exifForFolder(f.path)
+                // ExifTool doesn't seem to find the locations in my videos; grab that directly
+                let exifItems = try ExifToolInvoker.exifForFolder(f.path).map( { (ei) -> (ExifToolItem) in
+                    if !ei.hasLocation && ei.mimeType != nil && isSupportedVideoType(ei.mimeType!) {
+                        if let videoData = VideoMetadata(f.path + ei.filename) {
+                            if videoData.hasLocation {
+                                var updated = ExifToolItem(ei)
+                                updated.directLatitude = videoData.videoLatitude
+                                updated.directLongitude = videoData.videoLongitude
+                                return updated
+                            }
+                        }
+                    }
+                    return ei
+                })
 
-                // Get rid of items that aren't compatible (filtered), convert to the format
-                // used by the client (mapped) and filter out those that didn't convert (finalList)
+                // Get rid of items that aren't compatible, then convert to the domain model
+                // used by the client and filter out those that didn't convert
                 let filtered = exifItems.filter( { ei in return isValidExifItem(ei) })
                 let mapped = filtered.map( { ei in return mapToPhotoMapperItem(ei, folderPrefix) })
                 let finalList = mapped.filter( { pmi in return pmi.latitude != nil && pmi.longitude != nil})
@@ -176,21 +187,21 @@ class Processor {
     }
 
     func isValidExifItem(_ exifItem: ExifToolItem) -> Bool {
-        var keep = exifItem.mimeType != nil 
-            && exifItem.createDate != nil
-            && exifItem.gpsLatitudeRef != nil
-            && exifItem.gpsLatitude != nil
-            && exifItem.gpsLongitudeRef != nil
-            && exifItem.gpsLongitude != nil
-            && exifItem.imageWidth != nil
-            && exifItem.imageHeight != nil
-
-        keep = keep && isSupportedMimeType(exifItem.mimeType!)
-        return keep
+        return exifItem.mimeType != nil 
+            && isSupportedMimeType(exifItem.mimeType!)
+            && exifItem.hasTimestamp
+            && exifItem.hasLocation 
+            && exifItem.hasDimensions
     }
 
     func isSupportedImageType(_ mimeType: String) -> Bool {
         return Processor.supportedImageMimeTypes.contains { item  in
+            return mimeType.caseInsensitiveCompare(item) == ComparisonResult.orderedSame
+        }
+    }
+
+    func isSupportedVideoType(_ mimeType: String) -> Bool {
+        return Processor.supportedVideoMimeTypes.contains { item  in
             return mimeType.caseInsensitiveCompare(item) == ComparisonResult.orderedSame
         }
     }
@@ -203,50 +214,22 @@ class Processor {
 
     func mapToPhotoMapperItem(_ exifItem: ExifToolItem, _ folderPrefix: String) -> PhotoMapperItem {
 
-        var latitude = dmsToDouble(exifItem.gpsLatitude!)
-        var longitude = dmsToDouble(exifItem.gpsLongitude!)
-        if latitude == nil || longitude == nil {
-            print("WARNING: both latitude & longitude are 0 for \(exifItem.filename)")
-        } else {
-            if exifItem.gpsLatitudeRef == "South" {
-                latitude! *= -1.0
-            }
-            if exifItem.gpsLongitudeRef == "West" {
-                longitude! *= -1.0
-            }
-        }
+        let imageWidth = exifItem.getImageWidth()
+        let imageHeight = exifItem.getImageHeight()
 
         return PhotoMapperItem(
             fileName: exifItem.filename,
             mimeType: exifItem.mimeType!,
-            timestamp: exifDateFormatter.date(from: exifItem.createDate!)!,
-            latitude: latitude,
-            longitude: longitude,
+            timestamp: exifItem.getTimestamp(),
+            latitude: exifItem.getLatitude(),
+            longitude: exifItem.getLongitude(),
             originalImage: "static/photodata/originals/\(folderPrefix)/\(exifItem.filename)",
             popupsImage: "static/photodata/popups/\(folderPrefix)/\(exifItem.filename)",
-            popupWidth: exifItem.imageWidth! * popupsHeight / exifItem.imageHeight!,
+            popupWidth: imageWidth * popupsHeight / imageHeight,
             popupHeight: popupsHeight,
             thumbnail: "static/photodata/thumbs/\(folderPrefix)/\(exifItem.filename)",
-            thumbWidth: exifItem.imageWidth! * thumbHeight / exifItem.imageHeight!,
-            thumbHeight: thumbHeight)
-    }
-
-    func dmsToDouble(_ dms: String) -> Double? {
-        // 122 deg 20' 36.60"
-        let tokens = dms.components(separatedBy: " ")
-        if tokens.count != 4 {
-print("invalid DMS tokens: \(dms)")
-            return nil
-        }
-
-        let degrees: Double? = Double(tokens[0])
-        let minutes: Double? = Double(tokens[2].substring(offset:0, end:tokens[2].characters.count - 1))
-        let seconds: Double? = Double(tokens[3].substring(offset:0, end:tokens[3].characters.count - 1))
-        if degrees != nil && minutes != nil && seconds != nil {
-            return degrees! + (minutes! / 60.0) + (seconds! / 3600.0)
-        }
-
-print("invalid DMS conversion: \(dms)")
-        return nil
+            thumbWidth: imageWidth * thumbHeight / imageHeight,
+            thumbHeight: thumbHeight,
+            videoDurationSeconds: exifItem.getVideoDurationSeconds())
     }
 }
