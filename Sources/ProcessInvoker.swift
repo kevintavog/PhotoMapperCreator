@@ -22,15 +22,25 @@ open class ProcessInvoker
 
     static fileprivate func launch(_ launchPath: String, arguments: [String]) -> (output: String, error: String, exitCode: Int32)
     {
+        let launchCompleted = DispatchSemaphore(value: 0)
+
         let task = Process()
         task.launchPath = launchPath
         task.arguments = arguments
 
+        task.terminationHandler = { t in 
+            launchCompleted.signal()
+        }
+
         var outputData = Data()
-        let stdoutHandler: (FileHandle) -> Void = { handler in outputData.append(handler.availableData) }
+        let stdoutHandler: (FileHandle) -> Void = { handler in
+            outputData.append(handler.availableData)
+        }
 
         var errorData = Data()
-        let stderrHandler: (FileHandle) -> Void = { handler in errorData.append(handler.availableData) }
+        let stderrHandler: (FileHandle) -> Void = { handler in 
+            errorData.append(handler.availableData)
+        }
 
         let outputPipe = Pipe()
         task.standardOutput = outputPipe
@@ -44,7 +54,8 @@ open class ProcessInvoker
         task.environment = ["PATH": (launchPath as NSString).deletingLastPathComponent]
 
         task.launch()
-        task.waitUntilExit()
+        launchCompleted.wait()
+
 
         outputPipe.fileHandleForReading.readabilityHandler = nil
         errorPipe.fileHandleForReading.readabilityHandler = nil

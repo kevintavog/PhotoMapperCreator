@@ -40,11 +40,18 @@ struct PhotoMapperItem {
 }
 
 class Processor {
+    enum Error: Swift.Error {
+        case invalidOutputPath(String)
+        case badFile(String)
+        case failedWriting(String)
+        case noMediaFound(String)
+    }
+
     fileprivate let thumbsFolderName = "thumbs"
     fileprivate let thumbHeight = 100
 
     fileprivate let popupsFolderName = "popups"
-    fileprivate let popupsHeight = 400
+    fileprivate let popupHeight = 400
 
     fileprivate let originalsFolderName = "originals"
 
@@ -73,7 +80,7 @@ class Processor {
             popupsFolder = try FileSystem.ensureFolderExists(folder: outputFolder + "/" + popupsFolderName)
             originalsFolder = try FileSystem.ensureFolderExists(folder: outputFolder + "/" + originalsFolderName)
         } catch {
-            throw CreatorError.invalidOutputPath("Bad output folder: '\(outputFolder)': \(error)")            
+            throw Error.invalidOutputPath("Bad output folder: '\(outputFolder)': \(error)")            
         }
 
         let group = AsyncGroup()
@@ -123,10 +130,14 @@ class Processor {
                     let imageList = finalList.filter({ pmi in return isSupportedImageType(pmi.mimeType) })
                         .map( { pmi in return f.path + pmi.fileName })
                     runVips(group, imageList, thumbsFolderName, thumbHeight)
-                    runVips(group, imageList, popupsFolderName, popupsHeight)
+                    runVips(group, imageList, popupsFolderName, popupHeight)
+
+                    let videoList = finalList.filter({ pmi in return isSupportedVideoType(pmi.mimeType) })
+                        .map( { pmi in return f.path + pmi.fileName })
+                    generateVideoFrames(group, videoList, thumbsFolderName, popupsFolderName)
                 }
             } catch {
-                throw CreatorError.badFile("\(f.path) failed: \(error)")
+                throw Error.badFile("\(f.path) failed: \(error)")
             }
         }
 
@@ -138,7 +149,7 @@ class Processor {
         }
 
         if photoMapperList.count == 0 {
-            throw CreatorError.noMediaFound("No media was found, no photo map was created")
+            throw Error.noMediaFound("No media was found, no photo map was created")
         }
 
         let first = photoMapperList[0]
@@ -162,14 +173,50 @@ class Processor {
         do {
             try wrapped.write(to: URL(fileURLWithPath: baseOutputFolder.path + "photos.json"))
         } catch {
-            throw CreatorError.failedWriting("Failed writing photos.json: \(error)")
+            throw Error.failedWriting("Failed writing photos.json: \(error)")
         }
     }
 
     func runVips(_ group: AsyncGroup, _ fileList: [String], _ folder: String, _ height: Int) {
+        if fileList.count == 0 { return }
+
+        group.background {
+            self.runVips(fileList, folder, height)
+        }
+    }
+
+    func runVips(_ fileList: [String], _ folder: String, _ height: Int) {
+        if fileList.count == 0 { return }
+
+        do {
+            try VipsThumbnailInvoker.scaleImages(fileList, folder, height)
+        } catch {
+            Async.userInitiated { self.asyncErrors.append(error) }
+        }
+    }
+
+    func generateVideoFrames(_ group: AsyncGroup, _ fileList: [String], _ thumbsFolderName: String, _ popupsFolderName: String) {
+        if fileList.count == 0 { return }
+
         group.background {
             do {
-                try VipsThumbnailInvoker.scaleImages(fileList, folder, height)
+                // Generate a frame to a temporary location
+                let tempDir = NSTemporaryDirectory() + "rangic.PhotoMetadataCreator/" + NSUUID().uuidString
+                _ = try FileManager.default.createDirectory(atPath: tempDir, withIntermediateDirectories: true)
+                defer {
+                    do {
+                        try FileManager.default.removeItem(atPath: tempDir)
+                    } catch {
+                        Async.userInitiated { self.asyncErrors.append(error) }
+                    }
+                }
+
+                try FfmpegInvoker.generateFrameCapture(fileList, tempDir)
+
+                // Create thumbs & popups
+                let fileList = try Folder(path: tempDir).files.map { f in f.path }
+                self.runVips(fileList, thumbsFolderName, self.thumbHeight)
+                self.runVips(fileList, popupsFolderName, self.popupHeight)
             } catch {
                 Async.userInitiated { self.asyncErrors.append(error) }
             }
@@ -217,6 +264,8 @@ class Processor {
         let imageWidth = exifItem.getImageWidth()
         let imageHeight = exifItem.getImageHeight()
 
+        let generatedName = (exifItem.filename as NSString).deletingPathExtension + ".JPG"
+
         return PhotoMapperItem(
             fileName: exifItem.filename,
             mimeType: exifItem.mimeType!,
@@ -224,10 +273,10 @@ class Processor {
             latitude: exifItem.getLatitude(),
             longitude: exifItem.getLongitude(),
             originalImage: "static/photodata/originals/\(folderPrefix)/\(exifItem.filename)",
-            popupsImage: "static/photodata/popups/\(folderPrefix)/\(exifItem.filename)",
-            popupWidth: imageWidth * popupsHeight / imageHeight,
-            popupHeight: popupsHeight,
-            thumbnail: "static/photodata/thumbs/\(folderPrefix)/\(exifItem.filename)",
+            popupsImage: "static/photodata/popups/\(folderPrefix)/\(generatedName)",
+            popupWidth: imageWidth * popupHeight / imageHeight,
+            popupHeight: popupHeight,
+            thumbnail: "static/photodata/thumbs/\(folderPrefix)/\(generatedName)",
             thumbWidth: imageWidth * thumbHeight / imageHeight,
             thumbHeight: thumbHeight,
             videoDurationSeconds: exifItem.getVideoDurationSeconds())

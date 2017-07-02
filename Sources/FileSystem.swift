@@ -24,7 +24,6 @@ class FileSystem {
         do {
             theFolder = try Files.Folder(path: folder)
         } catch {
-            // If the folder can be created, use it
             let parentFolderName = (folder as NSString).deletingLastPathComponent
             let folderName = (folder as NSString).lastPathComponent
             do {

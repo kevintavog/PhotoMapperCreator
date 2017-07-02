@@ -14,6 +14,12 @@
       "version": "1.9.0"
     },
     {
+      "package": "Spawn",
+      "reason": null,
+      "repositoryURL": "https://github.com/jakeheis/Spawn",
+      "version": "0.0.6"
+    },
+    {
       "package": "SwiftCLI",
       "reason": null,
       "repositoryURL": "https://github.com/jakeheis/SwiftCLI",
