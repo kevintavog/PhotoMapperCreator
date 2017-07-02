@@ -12,5 +12,6 @@ CLI.setup(
 CLI.register(command: FolderCommand())
 GlobalOptions.source(CreatorGlobalOptions.self)
 
+print("Make sure exiftool, vipsthumbnail & ffmpeg are available")
 let result = CLI.go()
 exit(result)

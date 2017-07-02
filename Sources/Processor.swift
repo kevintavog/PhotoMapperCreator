@@ -65,7 +65,12 @@ class Processor {
     static let supportedMimeTypes: [String] = supportedImageMimeTypes + supportedVideoMimeTypes
 
     private var folderList: [Folder] = []
+    private var excludedFileNames: [String] = []
 
+
+    func addExcludedFileNames(_ list: [String]) {
+        excludedFileNames = list
+    }
 
     func addFolder(folder: String) throws {
         folderList.append(try Files.Folder(path: folder))
@@ -114,7 +119,7 @@ class Processor {
 
                 // Get rid of items that aren't compatible, then convert to the domain model
                 // used by the client and filter out those that didn't convert
-                let filtered = exifItems.filter( { ei in return isValidExifItem(ei) })
+                let filtered = exifItems.filter( { ei in return isValidExifItem(ei) && !isExcludedFileName(ei.filename) })
                 let mapped = filtered.map( { ei in return mapToPhotoMapperItem(ei, folderPrefix) })
                 let finalList = mapped.filter( { pmi in return pmi.latitude != nil && pmi.longitude != nil})
                 photoMapperList += finalList
@@ -175,6 +180,10 @@ class Processor {
         } catch {
             throw Error.failedWriting("Failed writing photos.json: \(error)")
         }
+    }
+
+    func isExcludedFileName(_ filename: String) -> Bool {
+        return excludedFileNames.contains { $0.caseInsensitiveCompare(filename) == ComparisonResult.orderedSame }
     }
 
     func runVips(_ group: AsyncGroup, _ fileList: [String], _ folder: String, _ height: Int) {

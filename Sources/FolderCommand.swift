@@ -10,8 +10,6 @@ class FolderCommand: Command {
     func execute() throws {
         try confirmGlobals()
 
-print("Make sure exiftool, vipsthumbnail & ffmpeg are available")
-
         for f in folders.value {
             do {
                 try Processor.instance.addFolder(folder: f)
@@ -19,6 +17,8 @@ print("Make sure exiftool, vipsthumbnail & ffmpeg are available")
                 throw CLIError.error("Bad input folder: \(error)")
             }
         }
+
+        Processor.instance.addExcludedFileNames(excludedFileNames)
 
         do {
             try Processor.instance.execute(outputFolder: outputFolder)
