@@ -20,7 +20,7 @@ struct PhotoBounds {
 struct PhotoMapperItem {
     var fileName: String
     var mimeType: String
-    var timestamp: Date
+    var timestamp: String
 
     // Optional in case of conversion errors; these items will be filtered out
     var latitude: Double?
@@ -278,7 +278,7 @@ class Processor {
         return PhotoMapperItem(
             fileName: exifItem.filename,
             mimeType: exifItem.mimeType!,
-            timestamp: exifItem.getTimestamp(),
+            timestamp: exifItem.getTimestampString(),
             latitude: exifItem.getLatitude(),
             longitude: exifItem.getLongitude(),
             originalImage: "static/photodata/originals/\(folderPrefix)/\(exifItem.filename)",

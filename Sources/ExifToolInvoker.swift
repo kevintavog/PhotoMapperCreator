@@ -5,6 +5,7 @@ import Unbox
 public struct ExifToolItem {
     static let imageDateFormatter = DateFormatter()
     static let quickTimeDateFormatter = DateFormatter()
+    static let outputDateFormatter = DateFormatter()
     static var formattersInitialized = false
 
 
@@ -76,6 +77,18 @@ public struct ExifToolItem {
         } else {
             return ExifToolItem.quickTimeDateFormatter.date(from: quickTimeCreateDate!)!
         }
+    }
+
+    func getTimestampString() -> String {
+        ExifToolItem.initializeFormatters()
+
+        var date: Date        
+        if createDate != nil {
+            date = ExifToolItem.imageDateFormatter.date(from: createDate!)!
+        } else {
+            date = ExifToolItem.quickTimeDateFormatter.date(from: quickTimeCreateDate!)!
+        }
+        return ExifToolItem.outputDateFormatter.string(from: date)
     }
 
     func getImageHeight() -> Int {
@@ -182,6 +195,8 @@ print("invalid DMS conversion: \(dms)")
             imageDateFormatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
             quickTimeDateFormatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
             quickTimeDateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+            outputDateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+            outputDateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
 
             formattersInitialized = true
         }
