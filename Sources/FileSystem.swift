@@ -20,20 +20,7 @@ class FileSystem {
     }
 
     static func ensureFolderExists(folder: String) throws -> Folder {
-        let theFolder: Folder
-        do {
-            theFolder = try Files.Folder(path: folder)
-        } catch {
-            let parentFolderName = (folder as NSString).deletingLastPathComponent
-            let folderName = (folder as NSString).lastPathComponent
-            do {
-                let parentFolder = try Files.Folder(path: parentFolderName)
-                theFolder = try parentFolder.createSubfolder(named: folderName)
-            } catch {
-                throw Error.unusablePathError("'\(folder)': \(error)")            
-            }
-        }
-
-        return theFolder
+        try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        return try Files.Folder(path: folder)
     }
 }

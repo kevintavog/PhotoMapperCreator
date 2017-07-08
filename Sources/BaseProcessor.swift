@@ -69,11 +69,13 @@ class BaseProcessor {
     func execute(outputFolder: String) throws {
         let baseOutputFolder: Folder
 
+        let photodataFolder = outputFolder + "/photodata"
+
         do {
-            baseOutputFolder = try FileSystem.ensureFolderExists(folder: outputFolder)
-            _ = try FileSystem.ensureFolderExists(folder: outputFolder + "/" + BaseProcessor.thumbsFolderName)
-            _ = try FileSystem.ensureFolderExists(folder: outputFolder + "/" + BaseProcessor.popupsFolderName)
-            _ = try FileSystem.ensureFolderExists(folder: outputFolder + "/" + BaseProcessor.originalsFolderName)
+            baseOutputFolder = try FileSystem.ensureFolderExists(folder: photodataFolder)
+            _ = try FileSystem.ensureFolderExists(folder: photodataFolder + "/" + BaseProcessor.thumbsFolderName)
+            _ = try FileSystem.ensureFolderExists(folder: photodataFolder + "/" + BaseProcessor.popupsFolderName)
+            _ = try FileSystem.ensureFolderExists(folder: photodataFolder + "/" + BaseProcessor.originalsFolderName)
         } catch {
             throw Error.invalidOutputPath("Bad output folder: '\(outputFolder)': \(error)")            
         }
