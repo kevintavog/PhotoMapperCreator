@@ -32,22 +32,17 @@ class FfmpegInvoker
 
     static fileprivate func runFfmpeg(_ arguments: [String]) throws -> String
     {
-        do {
-            // Process, via ProcessInvoker, hangs when issuing this command. I don't understand why or
-            // how to avoid it, so use posix_spawn, via Spawn, instead.
-            var output = ""
-            let spawn = try Spawn(args: [ffmpegPath] + arguments) { str in
-                output = output + str
-            }
-            let exitCode = spawn.waitForExit()
-            if exitCode == 0 {
-                return ""
-            }
+        // Process, via ProcessInvoker, hangs when issuing this command. I don't understand why or
+        // how to avoid it, so use posix_spawn, via Spawn, instead.
+        var output = ""
+        let spawn = try Spawn(args: [ffmpegPath] + arguments) { str in
+            output = output + str
+        }
+        let exitCode = spawn.waitForExit()
+        if exitCode == 0 {
+            return ""
+        }
 
-            throw Error.runFailed(error: "ffmpeg failed: \(exitCode) [\(output)]")
-        }
-        catch {
-            throw Error.runFailed(error: "ffmpeg failed: \(error)")
-        }
+        throw Error.runFailed(error: "ffmpeg failed: \(exitCode) [\(output)]")
     }
 }

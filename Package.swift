@@ -10,6 +10,7 @@ let package = Package(
         .Package(url: "https://github.com/johnsundell/unbox.git", majorVersion: 2),
         .Package(url: "https://github.com/jakeheis/SwiftCLI", majorVersion: 3),
         .Package(url: "https://github.com/duemunk/Async", majorVersion: 2),
-        .Package(url: "https://github.com/jakeheis/Spawn", majorVersion: 0)
+        .Package(url: "https://github.com/jakeheis/Spawn", majorVersion: 0),
+        .Package(url: "https://github.com/Alamofire/Alamofire.git", majorVersion: 4)
     ]
 )

@@ -9,7 +9,7 @@ CLI.setup(
     name: "PhotoMapper creator",
     version: "1.0",
     description: "Creates PhotoMapper projects that can be uploaded to a website.")
-CLI.register(command: FolderCommand())
+CLI.register(commands: [FindAPhotoCommand(), FolderCommand()])
 GlobalOptions.source(CreatorGlobalOptions.self)
 
 print("Make sure exiftool, vipsthumbnail & ffmpeg are available")
