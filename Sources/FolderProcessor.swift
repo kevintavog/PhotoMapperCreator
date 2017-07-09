@@ -71,6 +71,8 @@ class FolderProcessor : BaseProcessor {
             timestamp: exifItem.getTimestampString(),
             latitude: exifItem.getLatitude(),
             longitude: exifItem.getLongitude(),
+            city: nil,
+            country: nil,
             originalImage: "static/photodata/originals/\(folderPrefix)/\(exifItem.filename)",
             popupsImage: "static/photodata/popups/\(folderPrefix)/\(generatedName)",
             popupWidth: imageWidth * BaseProcessor.popupHeight / imageHeight,

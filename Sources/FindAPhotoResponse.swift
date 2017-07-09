@@ -20,6 +20,9 @@ public struct FindAPhotoItem {
     let latitude: Double?
     let longitude: Double?
 
+    let city: String?
+    let country: String?
+
     let mimeType: String
     let mediaURL: String
 
@@ -53,6 +56,9 @@ extension FindAPhotoItem: Unboxable {
 
         self.latitude = unboxer.unbox(keyPath: "latitude")
         self.longitude = unboxer.unbox(keyPath: "longitude")
+
+        self.city = unboxer.unbox(keyPath: "city")
+        self.country = unboxer.unbox(keyPath: "country")
 
         self.mimeType = try unboxer.unbox(keyPath: "mimeType")
         self.mediaURL = try unboxer.unbox(keyPath: "mediaURL")

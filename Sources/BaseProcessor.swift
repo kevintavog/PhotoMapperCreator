@@ -26,6 +26,9 @@ struct PhotoMapperItem {
     var latitude: Double?
     var longitude: Double?
 
+    var city: String?
+    var country: String?
+
     var originalImage: String
 
     var popupsImage: String

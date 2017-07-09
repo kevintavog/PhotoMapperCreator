@@ -125,6 +125,8 @@ class FindAPhotoProcessor : BaseProcessor {
             timestamp: fpi.getTimestampString(),
             latitude: fpi.latitude,
             longitude: fpi.longitude,
+            city: fpi.city,
+            country: fpi.country,
             originalImage: "static/photodata/originals/\(folderPrefix)/\(filename)",
             popupsImage: "static/photodata/popups/\(folderPrefix)/\(generatedName)",
             popupWidth: imageWidth * BaseProcessor.popupHeight / imageHeight,
@@ -142,7 +144,7 @@ class FindAPhotoProcessor : BaseProcessor {
             "q": "\(query)",
             "first": "\(first)",
             "count": "\(perQueryCount)",
-            "properties": "createdDate,height,id,imageName,latitude,longitude,mediaURL,mimeType,width"
+            "properties": "city,country,createdDate,height,id,imageName,latitude,longitude,mediaURL,mimeType,width"
         ]
 
         var error: Swift.Error? = nil
