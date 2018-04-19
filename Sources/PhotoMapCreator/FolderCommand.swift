@@ -14,7 +14,7 @@ class FolderCommand: Command {
             do {
                 try FolderProcessor.instance.addFolder(folder: f)
             } catch {
-                throw CLIError.error("Bad input folder: \(error)")
+                throw CLI.Error(message: "Bad input folder: \(error)")
             }
         }
 
@@ -23,7 +23,7 @@ class FolderCommand: Command {
         do {
             try FolderProcessor.instance.execute(outputFolder: outputFolder)
         } catch {
-            throw CLIError.error("Failed processing: \(error)")
+            throw CLI.Error(message: "Failed processing: \(error)")
         }
     }
 }

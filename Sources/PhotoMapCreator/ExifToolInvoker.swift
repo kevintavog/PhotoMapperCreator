@@ -180,8 +180,8 @@ print("invalid DMS tokens: \(dms)")
         }
 
         let degrees: Double? = Double(tokens[0])
-        let minutes: Double? = Double(tokens[2].substring(offset:0, end:tokens[2].characters.count - 1))
-        let seconds: Double? = Double(tokens[3].substring(offset:0, end:tokens[3].characters.count - 1))
+        let minutes: Double? = Double(tokens[2].substring(offset:0, end:tokens[2].count - 1))
+        let seconds: Double? = Double(tokens[3].substring(offset:0, end:tokens[3].count - 1))
         if degrees != nil && minutes != nil && seconds != nil {
             return degrees! + (minutes! / 60.0) + (seconds! / 3600.0)
         }

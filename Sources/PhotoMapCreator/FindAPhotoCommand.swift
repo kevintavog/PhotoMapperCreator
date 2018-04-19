@@ -17,7 +17,7 @@ class FindAPhotoCommand: Command {
         do {
             try FindAPhotoProcessor.instance.execute(outputFolder: outputFolder)
         } catch {
-            throw CLIError.error("Failed processing: \(error)")
+            throw CLI.Error(message: "Failed processing: \(error)")
         }
     }
 }

@@ -5,13 +5,13 @@ import SwiftCLI
 // < > findaphoto -h host -q query -o output
 
 // Take an input folder, require an output folder
-CLI.setup(
+let cli = CLI(
     name: "PhotoMapper creator",
-    version: "1.0",
+    version: "1.1",
     description: "Creates PhotoMapper projects that can be uploaded to a website.")
-CLI.register(commands: [FindAPhotoCommand(), FolderCommand()])
-GlobalOptions.source(CreatorGlobalOptions.self)
+cli.commands = [FindAPhotoCommand(), FolderCommand()]
+cli.globalOptions.append(CreatorGlobalOptions.outputFolder)
+cli.globalOptions.append(CreatorGlobalOptions.excludedFiles)
 
 print("Make sure exiftool, vipsthumbnail & ffmpeg are available")
-let result = CLI.go()
-exit(result)
+cli.goAndExit()

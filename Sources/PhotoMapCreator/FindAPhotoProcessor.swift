@@ -14,7 +14,7 @@ class FindAPhotoProcessor : BaseProcessor {
 
 
     func setHost(_ host: String) {
-        if host.characters.last != "/" {
+        if host.last != "/" {
             self.host = host + "/"
         } else {
             self.host = host

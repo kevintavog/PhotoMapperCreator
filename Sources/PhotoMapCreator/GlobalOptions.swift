@@ -1,12 +1,9 @@
 import SwiftCLI
 
-struct CreatorGlobalOptions: GlobalOptionsSource {
-    static let outputFolder = Key<String>("-o", usage: "The directory to write output files")
-    static let excludedFiles = Key<String>("-x", usage: "Comma separated list of file names to exclude")
 
-    static var options: [Option] {
-        return [outputFolder, excludedFiles]
-    }
+struct CreatorGlobalOptions {
+    static let outputFolder = Key<String>("-o", description: "The directory to write output files")
+    static let excludedFiles = Key<String>("-x", description: "Comma separated list of file names to exclude")
 }
 
 extension Command {
@@ -29,7 +26,7 @@ extension Command {
 
     func confirmGlobals() throws {
         if outputFolderKey.value == nil {
-            throw CLIError.error("The output folder was not specified")
+            throw CLI.Error(message: "The output folder was not specified")
         }        
     }
 }
