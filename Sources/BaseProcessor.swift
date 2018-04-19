@@ -8,6 +8,26 @@ struct PhotoMapper {
     var dateCreated: Date
     var photos: [PhotoMapperItem]
     var bounds: PhotoBounds
+    var filters: [PhotoFilter]
+}
+
+struct PhotoFilter {
+    var name: String
+    var field: String
+    var values: [PhotoFilterValue]
+}
+
+struct PhotoFilterValue: Hashable {
+    var value: String
+    var selected: Bool
+
+    var hashValue: Int {
+        return value.hashValue
+    }
+
+    static func == (lhs: PhotoFilterValue, rhs: PhotoFilterValue) -> Bool {
+        return lhs.value == rhs.value
+    }
 }
 
 struct PhotoBounds {
@@ -21,6 +41,9 @@ struct PhotoMapperItem {
     var fileName: String
     var mimeType: String
     var timestamp: String
+    var year: String?
+    var monthName: String?
+    var date: String?
 
     // Optional in case of conversion errors; these items will be filtered out
     var latitude: Double?
@@ -42,7 +65,26 @@ struct PhotoMapperItem {
     var videoDurationSeconds: Double?
 }
 
+struct MonthNameAndNumber: Hashable {
+    var name: String
+    var number: Int
+
+    var hashValue: Int {
+        return number.hashValue
+    }
+
+    static func == (lhs: MonthNameAndNumber, rhs: MonthNameAndNumber) -> Bool {
+        return lhs.number == rhs.number
+    }
+}
+
 class BaseProcessor {
+    let citiesFilter = "Cities"
+    let countriesFilter = "Countries"
+    let yearsFilter = "Years"
+    let monthsFilter = "Months"
+    let datesFilter = "Dates"
+
     enum Error: Swift.Error {
         case invalidOutputPath(String)
         case badFile(String)
@@ -83,8 +125,7 @@ class BaseProcessor {
             throw Error.invalidOutputPath("Bad output folder: '\(outputFolder)': \(error)")            
         }
 
-        let photoMapperList = try runProcessor(outputPath: baseOutputFolder.path)
-
+        var photoMapperList = try runProcessor(outputPath: baseOutputFolder.path)
         asyncGroup.wait()
 
         if asyncErrors.count > 0 {
@@ -95,22 +136,12 @@ class BaseProcessor {
             throw Error.noMediaFound("No media was found, no photo map was created")
         }
 
-        let first = photoMapperList[0]
-        var bounds = PhotoBounds(
-            minLatitude: first.latitude!, minLongitude: first.longitude!,
-            maxLatitude: first.latitude!, maxLongitude: first.longitude!)
-
-        photoMapperList.forEach { pmi in 
-            bounds.minLatitude = min(bounds.minLatitude, pmi.latitude!)
-            bounds.minLongitude = min(bounds.minLongitude, pmi.longitude!)
-            bounds.maxLatitude = max(bounds.maxLatitude, pmi.latitude!)
-            bounds.maxLongitude = max(bounds.maxLongitude, pmi.longitude!)
-        }
-
+        let calculated = calculateBoundsAndFilters(&photoMapperList)
         let photoMapper = PhotoMapper(
             dateCreated: Date(),
             photos: photoMapperList.sorted { $0.timestamp < $1.timestamp },
-            bounds: bounds)
+            bounds: calculated.bounds,
+            filters: calculated.filters)
         let wrapped: Data = try wrap(photoMapper)
 
         do {
@@ -118,6 +149,94 @@ class BaseProcessor {
         } catch {
             throw Error.failedWriting("Failed writing photos.json: \(error)")
         }
+    }
+
+    func calculateBoundsAndFilters(_ photoMapperList: inout [PhotoMapperItem]) -> (bounds: PhotoBounds, filters: [PhotoFilter]) {
+        let first = photoMapperList[0]
+        var bounds = PhotoBounds(
+            minLatitude: first.latitude!, minLongitude: first.longitude!,
+            maxLatitude: first.latitude!, maxLongitude: first.longitude!)
+
+        let timestampDateFormatter = DateFormatter()
+        timestampDateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        timestampDateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        let monthNameDateFormatter = DateFormatter()
+        monthNameDateFormatter.dateFormat = "LLLL"
+        let calendar = Calendar.current
+
+        var rawMonthsFilter = Set<MonthNameAndNumber>()
+        var rawFilters = [
+            citiesFilter: Set<PhotoFilterValue>(),
+            countriesFilter: Set<PhotoFilterValue>(),
+            yearsFilter: Set<PhotoFilterValue>(),
+            datesFilter: Set<PhotoFilterValue>()
+        ]
+        for (index, pmi) in photoMapperList.enumerated() {
+            bounds.minLatitude = min(bounds.minLatitude, pmi.latitude!)
+            bounds.minLongitude = min(bounds.minLongitude, pmi.longitude!)
+            bounds.maxLatitude = max(bounds.maxLatitude, pmi.latitude!)
+            bounds.maxLongitude = max(bounds.maxLongitude, pmi.longitude!)
+
+            if pmi.city != nil && !pmi.city!.isEmpty {
+                rawFilters[citiesFilter]!.insert(PhotoFilterValue(value: pmi.city!, selected: false))
+            }
+            if pmi.country != nil && !pmi.country!.isEmpty {
+                rawFilters[countriesFilter]!.insert(PhotoFilterValue(value: pmi.country!, selected: false))
+            }
+
+            if let date = timestampDateFormatter.date(from: pmi.timestamp) {
+                let year = calendar.component(.year, from: date)
+                rawFilters[yearsFilter]!.insert(PhotoFilterValue(value: "\(year)", selected: false))
+
+                let month = calendar.component(.month, from: date)
+                let monthName = monthNameDateFormatter.string(from: date)
+                rawMonthsFilter.insert(MonthNameAndNumber(name: "\(monthName)", number: month))
+
+                let day = calendar.component(.day, from: date)
+                let date = "\(year)-\(String(format: "%02d", month))-\(String(format: "%02d", day))"
+                rawFilters[datesFilter]!.insert(PhotoFilterValue(value: date, selected: false))
+
+                photoMapperList[index].year = "\(year)"
+                photoMapperList[index].monthName = monthName
+                photoMapperList[index].date = date
+            }
+        }
+
+        // Keep either the year & month names OR the dates
+        if rawFilters[datesFilter]!.count > 20 {
+            rawFilters[datesFilter] = nil
+        } else {
+            rawFilters[yearsFilter] = nil
+            rawFilters[monthsFilter] = nil
+        }
+
+        let filterNameToFieldMap = [
+            citiesFilter: "city",
+            countriesFilter: "country",
+            yearsFilter: "year",
+            monthsFilter: "monthName",
+            datesFilter: "date"
+        ]
+
+        var filters: [PhotoFilter] = []
+        for (key, values) in rawFilters {
+            if values.count > 1 {
+                filters.append(
+                    PhotoFilter(
+                        name: key, 
+                        field: filterNameToFieldMap[key]!, 
+                        values: values.sorted(by: { (a, b) -> Bool in
+                            return a.value <= b.value
+                        })))
+            }
+        }
+
+        let sortedMonths = rawMonthsFilter.sorted(by: { (a, b) -> Bool in 
+            return a.number <= b.number
+        }).map { m in PhotoFilterValue(value: m.name, selected: false) }
+        filters.append(PhotoFilter(name: monthsFilter, field: filterNameToFieldMap[monthsFilter]!, values: sortedMonths))
+
+        return (bounds, filters)
     }
 
     func runProcessor(outputPath: String) throws -> [PhotoMapperItem] {
@@ -142,6 +261,9 @@ class BaseProcessor {
 
     func runVips(_ fileList: [String], _ folder: String, _ height: Int) {
         if fileList.count == 0 { return }
+        if FileSystem.allFilesExistInFolder(folder, fileList) {
+            return
+        }
 
         do {
             try VipsThumbnailInvoker.scaleImages(fileList, folder, height)
@@ -152,6 +274,10 @@ class BaseProcessor {
 
     func generateVideoFrames(_ group: AsyncGroup, _ fileList: [String], _ thumbsFolderName: String, _ popupsFolderName: String) {
         if fileList.count == 0 { return }
+        if FileSystem.allFilesExistInFolder(thumbsFolderName, fileList) 
+            && FileSystem.allFilesExistInFolder(popupsFolderName, fileList) {
+            return
+        }
 
         group.background {
             do {
@@ -199,12 +325,12 @@ class BaseProcessor {
 
         let imageList = items.filter({ pmi in return isSupportedImageType(pmi.mimeType) })
             .map( { pmi in return originalsFolderName + pmi.fileName })
-        runVips(asyncGroup, imageList, thumbsFolderName, BaseProcessor.thumbHeight)
-        runVips(asyncGroup, imageList, popupsFolderName, BaseProcessor.popupHeight)
+       runVips(asyncGroup, imageList, thumbsFolderName, BaseProcessor.thumbHeight)
+       runVips(asyncGroup, imageList, popupsFolderName, BaseProcessor.popupHeight)
 
         let videoList = items.filter({ pmi in return isSupportedVideoType(pmi.mimeType) })
             .map( { pmi in return originalsFolderName + pmi.fileName })
-        generateVideoFrames(asyncGroup, videoList, thumbsFolderName, popupsFolderName)
+       generateVideoFrames(asyncGroup, videoList, thumbsFolderName, popupsFolderName)
     }
 
     func getOriginalsFolder(_ outputPath: String, _ folderPrefix: String) -> String {

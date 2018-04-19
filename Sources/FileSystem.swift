@@ -23,4 +23,27 @@ class FileSystem {
         try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
         return try Files.Folder(path: folder)
     }
+
+    static func allFilesExistInFolder(_ folder: String, _ fileList: [String]) -> Bool {
+        // Get all folder files without path or extension
+        do {
+            var folderList = Set<String>()
+            for file in try Files.Folder(path: folder).files {
+                folderList.insert(file.nameExcludingExtension)
+            }
+
+            for f in fileList {
+                 if let fileNameWithoutExtension = NSURL(fileURLWithPath: f).deletingPathExtension?.lastPathComponent {
+                    if !folderList.contains(fileNameWithoutExtension) {
+                        return false
+                    }
+                } else {
+                    return false
+                }
+            }
+        } catch {
+            return false
+        }
+        return true
+    }
 }
