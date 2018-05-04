@@ -105,7 +105,6 @@ open class VideoMetadata
                             }
                         }
                     }
-
                 } catch let error {
                     print("Error parsing moov location (\(moovLocation)): \(error)")
                 }

@@ -8,3 +8,6 @@ release-build:
 
 update:
 	swift package update
+
+push:
+	scp .build/release/PhotoMapCreator tavog@yuba.local:PhotoMapper/

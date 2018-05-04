@@ -5,6 +5,8 @@ import Unbox
 
 class FindAPhotoProcessor : BaseProcessor {
     static let instance = FindAPhotoProcessor()
+    static let backblazeBaseUrl = "https://f001.backblazeb2.com/file/kvt-photos/Master/"
+
 
     var host: String = ""
     var query: String = ""
@@ -59,6 +61,7 @@ class FindAPhotoProcessor : BaseProcessor {
         }
 
         photoMapperList += try processGroupItems(outputPath, groupItems)
+
         return photoMapperList
     }
 
@@ -119,6 +122,9 @@ class FindAPhotoProcessor : BaseProcessor {
         let imageWidth = fpi.width
         let imageHeight = fpi.height
 
+        let originalUrl = FindAPhotoProcessor.backblazeBaseUrl 
+            + fpi.mediaURL.substringFromOffset("/files/media/1%2F".count).replacingOccurrences(of: "%2F", with: "/")
+
         return PhotoMapperItem(
             fileName: filename,
             mimeType: fpi.mimeType,
@@ -130,7 +136,7 @@ class FindAPhotoProcessor : BaseProcessor {
             longitude: fpi.longitude,
             city: fpi.city,
             country: fpi.country,
-            originalImage: "static/photodata/originals/\(folderPrefix)/\(filename)",
+            originalImage: originalUrl,
             popupsImage: "static/photodata/popups/\(folderPrefix)/\(generatedName)",
             popupWidth: imageWidth * BaseProcessor.popupHeight / imageHeight,
             popupHeight: BaseProcessor.popupHeight,
